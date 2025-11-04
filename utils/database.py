@@ -1,16 +1,26 @@
 import sqlite3
 import datetime
 import logging
-from typing import Optional, List, Tuple
-
-import sqlite3
-import datetime
-import logging
+import os
 from typing import Optional, List, Tuple
 
 class Database:
-    def __init__(self, db_path: str = "data/bot.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        # ✅ Для облака используем временную директорию
+        if db_path is None:
+            # В облаке создаем в /tmp или используем память
+            if os.path.exists('/tmp'):
+                self.db_path = "/tmp/bot.db"
+            else:
+                # Если нет /tmp, используем in-memory базу
+                self.db_path = ":memory:"
+        else:
+            self.db_path = db_path
+        
+        # ✅ Создаем директорию если нужно
+        if self.db_path != ":memory:":
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+            
         self.init_db()
     
     def get_connection(self):
@@ -19,44 +29,50 @@ class Database:
     
     def init_db(self):
         """Инициализирует таблицы в базе данных"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Таблица пользователей
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id INTEGER PRIMARY KEY,
-                    username TEXT,
-                    first_name TEXT,
-                    last_name TEXT,
-                    language_code TEXT,
-                    is_bot BOOLEAN,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            # Таблица сообщений (для статистики)
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    text TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users (user_id)
-                )
-            ''')
-            
-            # Таблица настроек бота
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS bot_settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            ''')
-            
-            conn.commit()
-        logging.info("✅ База данных инициализирована")
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Таблица пользователей
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        user_id INTEGER PRIMARY KEY,
+                        username TEXT,
+                        first_name TEXT,
+                        last_name TEXT,
+                        language_code TEXT,
+                        is_bot BOOLEAN,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Таблица сообщений (для статистики)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER,
+                        text TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (user_id)
+                    )
+                ''')
+                
+                # Таблица настроек бота
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS bot_settings (
+                        key TEXT PRIMARY KEY,
+                        value TEXT
+                    )
+                ''')
+                
+                conn.commit()
+            logging.info("✅ База данных инициализирована")
+        except Exception as e:
+            logging.error(f"❌ Ошибка инициализации БД: {e}")
+            # ⚠️ Временное решение - используем in-memory базу
+            self.db_path = ":memory:"
+            self.init_db()
 
     def get_top_users(self, limit: int = 10):  # ⭐ ПЕРЕМЕСТИЛ ВНУТРЬ КЛАССА!
         """Возвращает топ активных пользователей"""
