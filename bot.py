@@ -1,10 +1,11 @@
+import os
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from config import BOT_TOKEN
+# Импорты роутеров
 from handlers.start import router as start_router
 from handlers.admin import router as admin_router
 from handlers.echo import router as echo_router
@@ -12,22 +13,30 @@ from handlers.echo import router as echo_router
 logging.basicConfig(level=logging.INFO)
 
 async def main():
-    # ✅ ПРАВИЛЬНО: инициализация внутри async функции
-    from utils.database import Database
-    db = Database()
+    # ✅ Берем токен из переменных окружения (для облака)
+    BOT_TOKEN = os.getenv('BOT_TOKEN')
     
+    if not BOT_TOKEN:
+        # ✅ Для локальной разработки
+        from config import BOT_TOKEN as local_token
+        BOT_TOKEN = local_token
+    
+    if not BOT_TOKEN:
+        logging.error("❌ BOT_TOKEN не найден! Проверь переменные окружения.")
+        return
+
     bot = Bot(
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
     dp = Dispatcher()
     
-    # ⚡ ПРАВИЛЬНЫЙ ПОРЯДОК:
-    dp.include_router(start_router)   # ← ПЕРВЫЙ! (команды и логирование)
-    dp.include_router(admin_router)   # ← ВТОРОЙ (админ команды)  
-    dp.include_router(echo_router)    # ← ПОСЛЕДНИЙ! (эхо и ответы на сообщения)
+    # Подключаем роутеры
+    dp.include_router(start_router)
+    dp.include_router(admin_router) 
+    dp.include_router(echo_router)
     
-    print("🚀 БОТ ЗАПУЩЕН!!!...")
+    print("🚀 БОТ ЗАПУЩЕН В ОБЛАКЕ!")
     print("✅ Роутеры подключены, ожидаем сообщения...")
     
     try:
